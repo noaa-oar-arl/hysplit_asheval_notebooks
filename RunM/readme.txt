@@ -1,6 +1,7 @@
 
 inverse_base_runs contains CONTROL and SETUP files for the individual runs to create the TCM.
 
+Contents of other folders can be generated with the BezyInverseRunM.ipynb notebook.
 other folders contain 
 TCM's used as input into inversion algorithm.
 Inversion algorithm output.
