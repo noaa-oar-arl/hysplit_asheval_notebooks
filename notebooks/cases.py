@@ -1,4 +1,34 @@
 
+def runD():
+    """
+    Source from inversion algorithm using time periods 1,2,3,4.
+    """
+    vhash = {}
+    vhash['vloc'] = [160.587,55.978]
+    vhash['tag'] ='DI'
+    tag = vhash['tag']
+
+    #----------------------------------------------------------------
+    # location and name of netcdf file with cdump output.
+    vhash['tdir'] = '../Run{}'.format(tag)
+    vhash['tname'] = 'runDI5.nc'
+
+    #----------------------------------------------------------------
+    vhash['configdir'] = '../Run{}'.format(tag)
+    vhash['configfile'] = 'config.{}.txt'.format('di')
+
+    #-----------------------------------------------------------------
+    # location of volcat files
+    vhash['vdir'] = '../data/volcat/'.format(tag)
+    # volcano id to locate
+    vhash['vid'] = 'v300250'
+        
+    #-----------------------------------------------------------------
+    # Location to write graphics files
+    vhash['gdir'] = './graphics/'
+    vhash['graphicstype'] = 'png'
+    return AshCase(vhash)
+
 def runM():
     """
     Source from inversion algorithm using time periods 1,2,3,4.
@@ -10,7 +40,7 @@ def runM():
 
     #----------------------------------------------------------------
     # location and name of netcdf file with cdump output.
-    vhash['tdir'] = '../Run{}/Run{}'.format(tag,'M_1_2_3_4_TF')
+    vhash['tdir'] = '../Run{}/Run{}'.format(tag,'M_2_3_4_TFw5')
     vhash['tname'] = 'RunM4.nc'
 
     #----------------------------------------------------------------
