@@ -1,3 +1,20 @@
+def set_lim(tii):
+    if tii>=13:
+        xlim=(155,175)
+        ylim=(46,61)
+    elif tii>=10:
+        xlim=(157.5,167)
+        ylim=(51.5,59)
+    elif tii>=8:
+        xlim=(157.5,164)
+        ylim=(52,58.5)
+    elif tii==6:
+        xlim=(157.5,163.5)
+        ylim=(53.5,58)
+    else:
+        xlim=(157.5,163)
+        ylim=(54,58)
+    return xlim, ylim 
 
 def runD():
     """
@@ -58,6 +75,16 @@ def runM():
     vhash['gdir'] = './graphics/'
     vhash['graphicstype'] = 'png'
     return AshCase(vhash)
+
+def runB():
+    tag = 'B'
+    case = runA()
+    case.vhash['tdir'] = '../RunB/'
+    case.vhash['tname'] = 'RunB.nc'
+    case.vhash['tag'] = tag
+    case.vhash['configdir'] = '../Run{}'.format(tag)
+    case.vhash['configfile'] = 'config.invbezyB.txt'
+    return case
 
 def runA():
     """
