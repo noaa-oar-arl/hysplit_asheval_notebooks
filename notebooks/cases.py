@@ -1,3 +1,27 @@
+import seaborn as sns
+    
+def getclrsGFS():
+    clrs = []
+    clrs.append(sns.xkcd_rgb['red']) 
+    clrs.append(sns.xkcd_rgb['orange']) 
+    clrs.append(sns.xkcd_rgb['orange']) 
+    clrs.append(sns.xkcd_rgb['blue']) 
+    clrs.append(sns.xkcd_rgb['green']) 
+
+    clrs.append(sns.xkcd_rgb['orange']) 
+    clrs.append(sns.xkcd_rgb['blue']) 
+    clrs.append(sns.xkcd_rgb['green']) 
+    clrs.append(sns.xkcd_rgb['cyan']) 
+
+    clrs.append(sns.xkcd_rgb['orange']) 
+    clrs.append(sns.xkcd_rgb['blue']) 
+    clrs.append(sns.xkcd_rgb['dark teal']) 
+    clrs.append(sns.xkcd_rgb['cyan']) 
+
+    clrs.append(sns.xkcd_rgb['navy']) 
+
+    return clrs
+
 def set_lim(tii):
     if tii>=13:
         xlim=(155,175)
@@ -46,7 +70,7 @@ def runD():
     vhash['graphicstype'] = 'png'
     return AshCase(vhash)
 
-def runM():
+def runM(subset='M_2_3_4_TFw5'):
     """
     Source from inversion algorithm using time periods 1,2,3,4.
     """
@@ -57,8 +81,8 @@ def runM():
 
     #----------------------------------------------------------------
     # location and name of netcdf file with cdump output.
-    vhash['tdir'] = '../Run{}/Run{}'.format(tag,'M_2_3_4_TFw5')
-    vhash['tname'] = 'RunM4.nc'
+    vhash['tdir'] = '../Run{}/Run{}'.format(tag,subset)
+    vhash['tname'] = 'RunM.nc'
 
     #----------------------------------------------------------------
     vhash['configdir'] = '../Run{}'.format(tag)
@@ -76,6 +100,37 @@ def runM():
     vhash['graphicstype'] = 'png'
     return AshCase(vhash)
 
+def runBcontrol():
+    tag = 'BC'
+    case = runA()
+    case.vhash['tdir'] = '../RunB/control/'
+    case.vhash['tname'] = 'RunBcontrol.nc'
+    case.vhash['tag'] = tag
+    case.vhash['configdir'] = '../Run{}'.format(tag)
+    case.vhash['configfile'] = None
+    return case
+
+def runany(subset,tag):
+    case = runA()
+    case.vhash['tdir'] = '../RunG/'
+    case.vhash['tdir'] = '../Run{}/Run{}'.format(tag,subset)
+    case.vhash['tname'] = 'Run{}.nc'.format(tag)
+    case.vhash['tag'] = tag
+    case.vhash['configdir'] = '../Run{}'.format(tag)
+    case.vhash['configfile'] = 'config.invbezy{}.txt'.format(tag)
+    return case
+
+def runH():
+    tag = 'H'
+    case = runA()
+    case.vhash['tdir'] = '../RunH/'
+    case.vhash['tname'] = 'RunH_GFS.nc'
+    case.vhash['tag'] = tag
+    case.vhash['configdir'] = '../Run{}'.format(tag)
+    case.vhash['configfile'] = 'config.invbezyH.txt'
+    return case
+
+
 def runB():
     tag = 'B'
     case = runA()
@@ -85,6 +140,37 @@ def runB():
     case.vhash['configdir'] = '../Run{}'.format(tag)
     case.vhash['configfile'] = 'config.invbezyB.txt'
     return case
+
+def runA2():
+    """
+    Cylindrical source
+    """
+    vhash = {}
+    vhash['vloc'] = [160.587,55.978]
+    vhash['tag'] ='A2'
+    tag = vhash['tag']
+
+    #----------------------------------------------------------------
+    # location and name of netcdf file with cdump output.
+    vhash['tdir'] = '../data/'
+    vhash['tname'] = 'xrfile.ensCylBezyB.nc'
+
+    #----------------------------------------------------------------
+    vhash['configdir'] = '../Run{}'.format(tag)
+    vhash['configfile'] = 'config.ensCylBezyB.txt'
+
+    #-----------------------------------------------------------------
+    # location of volcat files
+    vhash['vdir'] = '../data/volcat/'.format(tag)
+    # volcano id to locate
+    vhash['vid'] = 'v300250'
+        
+    #-----------------------------------------------------------------
+    # Location to write graphics files
+    vhash['gdir'] = './graphics/'
+    vhash['graphicstype'] = 'png'
+    return AshCase(vhash)
+
 
 def runA():
     """
