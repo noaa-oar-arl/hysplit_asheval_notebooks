@@ -1,5 +1,415 @@
+import datetime
+import numpy as np
+import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
+import copy
+import utilvolc.ash_inverse as ai
+from utilhysplit.evaluation import ensemble_tools
+from utilhysplit.plotutils import colormaker
+
+def set_lim(tii):
+    if tii==16:
+        xlim=(155,175)
+        ylim=(46,61)
+    elif tii==6:
+        xlim=(157.5,163.5)
+        ylim=(53.5,58)
+    elif tii==8 or tii==7:
+        xlim=(157.5,164)
+        ylim=(52,58.5)
+    else:
+        xlim=(157.5,163)
+        ylim=(54,58)
+    return xlim, ylim
+
+
+
+class TimeLaggedGFS:
+    def __init__(self,tag,aeval,
+                 remove_cols=True, 
+                 remove_rows=False, 
+                 remove_sources=False, 
+                 remove_ncs=5):
+        self.tag = tag
+        self.aeval = copy.copy(aeval)
+        self.remove_cols=remove_cols
+        self.remove_rows=remove_rows
+        self.remove_sources = remove_sources
+        self.remove_ncs = remove_ncs
+        self.graphics_type = '.png'
+        self.slope = None
+        self.intercept = None
+
+    def set_bias_correction(self,slope,intercept,dfcdf=pd.DataFrame(),cii=None):
+        self.slope = slope
+        self.intercept = intercept
+        self.aeval.set_bias_correction(slope,intercept,dfcdf=dfcdf)
+        self.cii = cii
+
+    def reset_defaults(self):
+        self.graphics_type = '.png'
+
+    def maketaglist(self, tiilist):
+        rlist = []
+        for tii in tiilist:
+            runtag = ai.create_runtag(self.tag,tii,self.remove_cols,
+                                      self.remove_rows, self.remove_sources,
+                                      remove_ncs = self.remove_ncs)
+            rlist.append(runtag) 
+        return rlist
+
+    def maketaglistA(self):
+        tiilist = [[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11]]
+        return self.maketaglist(tiilist)   
+
+    def maketaglistB(self):
+        tiilist = [[2,3],[2,3,4],[2,3,4,5],[2,3,4,5,6],[2,3,4,5,6,7],[2,3,4,5,6,7,8],[2,3,4,5,6,7,8,9],
+           [2,3,4,5,6,7,8,9,10],[2,3,4,5,6,7,8,9,10,11]]
+        return self.maketaglist(tiilist)   
+
+    def maketaglistall(self):
+        tiilist = self.aeval.cdump.ens.values
+        return tiilist        
+
+    def set_thresholds(self,coarsen=0,
+                       threshold=0.1,
+                       pixel_match=False,
+                       enslist=None):
+        self.threshold = threshold
+        self.coarsen = coarsen
+        self.pixel_match = pixel_match
+        self.threshstr = '{:0.1f}'.format(threshold).replace('.','p')
+        self.enslist = enslist
+        self.ctag = str(coarsen)
+        if pixel_match: self.pmtag = '_pm'
+        else: self.pmtag=''
+        dft, dft2 = self.accuracy()
+
+
+    def visualize(self,tii,vloc=None,cmap='viridis',verbose=True,figname=None):
+        if verbose: print(self.aeval.massload.time.values[tii])
+        timestr = str(pd.to_datetime(self.aeval.get_time(tii))).replace(' ','_')
+        timestr = timestr.replace(':00:00','')
+        timestr = timestr.replace('-','')
+        include='all'
+        try:
+            obs, model = self.aeval.get_pair(tii,coarsen=self.coarsen,cii=self.cii)
+        except:
+            return -1
+        for ens in  model.ens.values:
+            if verbose: print('ENS', ens)
+            xlim, ylim = set_lim(tii)
+            fig = self.aeval.compare_forecast(model.sel(ens=ens),vloc=vloc,cmap=cmap,xlim=xlim,ylim=ylim,
+                                              include=include)
+
+            if figname:
+               plt.savefig(gdir + 'pcolormesh_run{}_{}_{}.png'.format(figname,timestr,ens))
+            plt.show()
+ 
+        # mean value
+        fig = self.aeval.compare_forecast(model.mean(ens=ens),vloc=vloc,cmap=cmap,xlim=xlim,ylim=ylim,
+                                          include=include)
+        if figname:
+           plt.savefig(gdir + 'pcolormesh_run{}_{}_{}.png'.format(figname,timestr,'mean'))
+         
+        # max value
+        fig = self.aeval.compare_forecast(model.max(ens=ens),vloc=vloc,cmap=cmap,xlim=xlim,ylim=ylim,
+                                          include=include)
+        if figname:
+           plt.savefig(gdir + 'pcolormesh_run{}_{}_{}.png'.format(figname,timestr,'max'))
+         
+
+    def visualize_prob(self,tii,thresh,vloc=None,cmap='viridis',verbose=True,figname=None):
+        if verbose: print(self.aeval.massload.time.values[tii])
+        timestr = str(pd.to_datetime(self.aeval.get_time(tii))).replace(' ','_')
+        timestr = timestr.replace(':00:00','')
+        timestr = timestr.replace('-','')
+        include='all'
+        try:
+            obs, model = self.aeval.get_pair(tii,coarsen=self.coarsen,cii=self.cii)
+        except:
+            return -1
+
+        prob = ensemble_tools.ATL(model,thresh=thresh,norm=True)
+
+        xlim, ylim = set_lim(tii)
+
+        plevels = np.arange(0,1.1,0.15)
+        plevels = plevels[1:-2]
+        plevels = np.append(plevels,[1])
+        clevels = [0.02,0.2,2,5,10]
+        plevels = np.append([0.02],plevels)
+        include=False
+        fig = self.aeval.compare_forecast(prob,vloc=vloc,xlim=xlim,ylim=ylim,cmap_prob='cool',cmap='PuRd',
+                            include=include,vmin=0,vmax=1,plevels=plevels,prob=True,clevels=clevels)
+
+
+
+
+    def accuracy(self):
+           
+        volcat=[]
+        forecast=[]
+        # get_pair will return the cdump multiplied by the concmult factor set earlier.
+        # get these times.
+        for tii in [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]:
+            try:
+                obs, model = self.aeval.get_pair(tii,coarsen=self.coarsen,cii=self.cii)
+            except:
+                #print('breaking accuracy at {} :'.format(tii))
+                continue
+            if isinstance(self.enslist,list):
+                model = model.sel(ens=self.enslist)
+            forecast.append(model)
+            volcat.append(obs)
+        # dft is a pandas dataframe with FSS information
+        # dft2 is pandas dataframe with MSE, MAE information.
+        dft, dft2 = ensemble_tools.ens_time_fss(forecast,volcat,threshold=self.threshold,
+                                      neighborhoods=[1,3,5,7,9,11,13,15,17,19,21],plot=False,
+                                      pixel_match=self.pixel_match)
+
+        self.fssdf = dft
+        self.accdf = dft2
+        return dft, dft2
+
+
+    def plot_areaA(self,enslist,tlist=[0.1,0.2,2],legend=True):
+        sns.set()
+        sns.set_style('whitegrid')
+        fig = plt.figure(figsize=[20,5])
+        nnn=1
+        if legend: ccc=4
+        else: ccc = 3
+        ax1 = fig.add_subplot(nnn,ccc,1)
+        ax2 = fig.add_subplot(nnn,ccc,2)
+        ax3 = fig.add_subplot(nnn,ccc,3)
+        if legend: axg = fig.add_subplot(nnn,ccc,4)
+        axlist = [ax1, ax2, ax3]
+        for iii, thresh in enumerate(tlist):
+            print(iii, len(tlist), thresh)
+            self.set_thresholds(coarsen=0,threshold=thresh,
+                                pixel_match=False, enslist=enslist)
+            if iii < len(tlist)-1 or not legend:  
+                ax = self.plot_area(legend=False,ax=axlist[iii])
+            else:
+                ax = self.plot_area(legend=True,ax=axlist[iii],axg=axg)
+            
+
+    def plot_area(self,legend=False,ax=None,axg=None,enslist=None):
+        clen = len(self.accdf.ens.unique())
+        clrs = colormaker.ColorMaker('viridis',clen-1,ctype='hex',transparency=None)
+        colors = clrs()
+        colors = ['#'+x for x in colors]
+        colors.append('#F03811')
+        if not enslist: enslist = self.enslist.copy()
+        #enslist.append('mean')
+        ax = ensemble_tools.plot_ens_area(self.accdf,ax=ax,
+                                          plotmean=False,legend=False,
+                                          enslist = enslist,
+                                          clrlist=colors) 
+        handles, labels = ax.get_legend_handles_labels()
+        if legend:
+            if not axg:
+               figlegend = plt.figure()
+               axg = figlegend.add_subplot(1,1,1)
+            axg.legend(handles,labels,loc="center",fontsize=20)
+            axg.axis("off")
+            #plt.savefig('emissions{}_legend.png'.format(tag))
+
+    def makecolors(self,enslist=None):
+        if not enslist:
+           #clen = len(self.accdf.ens.unique())
+           clen = len(self.enslist)
+           print('num colors', clen)
+        clrs = colormaker.ColorMaker('viridis',clen-1,ctype='hex',transparency=None)
+        colors = clrs()
+        colors = ['#'+x for x in colors]
+        print(colors)
+        return colors
+
+    def plot_fssB(self,tii=14, slope=None, intercept=None):
+        # plot fss as a function of neighborhood for given time, tii
+        pixel_match=False
+        threshold=0.2
+        threshstr = str(threshold).replace('.','p')
+        timeval = self.aeval.cdump.time.values[tii]
+        print(timeval)
+        volcat,forecast = self.aeval.get_pair(tii,slope=slope, intercept=intercept,cii=self.cii)
+        print(self.aeval.concmult)
+        #forecast = aeval.cdump_hash[tii]
+        nb = np.arange(1,21,2)
+        nb = np.append(nb,[31,41,51])
+        if tii > 8:
+            nb = np.append(nb,[61,71,81,91,101])
+        #nb = [11,81,91]
+        # msc and psc are CalcScores objects.
+        # msc is for the ensemble mean (deterinistic)
+        # psc is for the probabilistic model field.
+        msc, psc, df1, dfmae = ensemble_tools.ens_fss(forecast,volcat,threshold=threshold,
+                                               neighborhoods=nb,
+                                               return_objects=True,plot=False,
+                                               pixel_match=pixel_match)
+        ensemble_tools.plot_ens_fss(df1)
+        if pixel_match: pmtag='_pm'
+        else: pmtag = ''
+
+
+    def plot_afss(self):
+        afss = ensemble_tools.plot_afss_ts(self.fssdf,clrs=self.makecolors())
+        # no reason to save if pixel matching is True.
+        #    plt.savefig(gdir + 'run{}_afss_ts_t{}{}.{}'.format(tag,threshold,biastag,graphicstype))
+        #else:
+        #    print('pixel match on')
+ 
+    def plot_fssA(self,neighborhood=11):
+        # plot fss as a function of time for given neighborhood
+        sns.set()
+        sns.set_style('whitegrid')
+        # grid size is 0.1 degrees.
+        # neighborhood gives the number of grid squares to
+        # look at. 10 would be a 1degree x 1 degree area.
+        clrs = self.makecolors()
+        ensemble_tools.plot_ens_fss_ts(self.fssdf,nval=neighborhood,clrs=clrs)
+        ax = plt.gca()
+        ax.set_ylim(-0.01,0.98)
+        plt.savefig('run{}_fss_ts_n{}_t{}{}.{}'.format(self.tag,
+                                                       neighborhood,
+                                                       self.threshstr,
+                                                       self.pmtag,
+                                                       self.graphics_type))
+
+
+    def plot_accuracy(self):
+        clen = len(self.accdf.ens.unique())
+        clrs = colormaker.ColorMaker('viridis',clen-1,ctype='hex',transparency=None)
+        colors = clrs()
+        print(colors)
+        colors = ['#'+x for x in colors]
+        colors.append('#F03811')
+        print(colors)
+
+
+        enslist = self.enslist
+        #enslist.append('mean')
+
+        for val in ['MAE','MSE','RMSE','bias','fractional_bias','POD','FAR','CSI','B']:
+            sns.set_style('whitegrid')
+            ax = ensemble_tools.plot_ens_accuracy(self.accdf,val,
+                                                  plotmean=False,
+                                                  legend=False,
+                                                  clrlist=colors,
+                                                  enslist=enslist)
+            if val in ['MAE','MSE','RMSE']:
+                ax.set_yscale('log')
+            newlab=[]
+            handles, labels = ax.get_legend_handles_labels()
+            #for lab in labels:
+            #    newlab.append(handlehash[lab])
+            newlab = getlabels()
+            #if val in ['CSI']: ax.legend(handles, newlab)
+            #ax.legend(handles, newlab)
+            
+            #d1 = datetime.datetime(2020,10,22,2)
+            #x1 = [d1,d1]
+            #y1 = [1e-1,1]
+            #ax.plot(x1,y1,'--bo')
+           
+            plt.savefig('run{}_{}_t{}{}c{}.{}'.format(self.tag,val,
+                                                      self.threshstr,self.pmtag,
+                                                      self.ctag,self.graphics_type))
+        plt.show()
+        figlegend = plt.figure()
+        axg = figlegend.add_subplot(1,1,1)
+        axg.legend(handles,labels,loc="center",fontsize=20)
+        axg.axis("off")
+        #plt.savefig('emissions{}_legend.png'.format(tag))
+        plt.show()
     
+
+    def cdf_plot(self, d1, threshold=None):
+        if not isinstance(d1,list): timelist=[d1]
+        else: timelist = d1
+        print(timelist)
+        #print(enslist)l.
+        if not threshold: threshold = self.threshold
+        biastag=''
+        if isinstance(d1,list):
+            timestr = d1[0].strftime("%Y%m%dH%H")
+        else:
+            timestr = d1.strftime("%Y%m%dH%H")
+        colors = self.makecolors()
+        # CDF with pixel matching. Threshold will be different for every ensemble member as well as fo
+        # volcat data. First threshold is applied to VOLCAT data. Number of VOLCAT pixels above threshold
+        # is counted.
+        figname = 'pixel_match_cdf_{}_{}{}.png'.format(self.tag,timestr,biastag)
+        cdhash1 = self.aeval.mass_cdf_plot(timelist,
+                            self.enslist,
+                            threshold=threshold,
+                            use_pixel_match=False,
+                            plotdiff=False,
+                            figname=figname,
+                            colors=colors)
+        #ax = plt.gca()
+        #plt.savefig('pixel_match_ks_{}_{}{}.png'.format(self.tag,timestr,biastag))
+        #plt.show()
+
+        # CDF with no pixel matching. Thresholds are the same for every ensemble member and volcat data.
+        # number of above threshold pixels will be different.
+        #cdhash2 = self.aeval.mass_cdf_plot(timelist,
+        #                    self.enslist,
+        #                    threshold=threshold,
+        #                    use_pixel_match=True,
+        #                    plotdiff=False,
+        #                    figname=figname,
+        #                    colors=colors)
+        #figname = 'cdf_{}_{}{}.png'.format(self.tag,timestr,biastag)
+        #ax = plt.gca()
+        #plt.savefig('ks_{}_{}{}.png'.format(self.tag,timestr,biastag))
+        #plt.show()
+        return cdhash1 
+
+
+def describe_cdhash(cdhash):
+    from scipy.stats import describe
+    keys = list(cdhash.keys())
+    date = []
+    ens = []
+    mean = []
+    var = []
+    skew = []
+    kurt = []
+    num = []
+    small = []
+    big = []
+    
+    for ky in keys:
+        date.append(ky[0])
+        ens.append(ky[1])
+        sts = describe(cdhash[ky][0])
+        mean.append(sts.mean)
+        var.append(sts.variance)
+        skew.append(sts.skewness)
+        kurt.append(sts.kurtosis)
+        num.append(sts.nobs)
+        small.append(sts.minmax[0])
+        big.append(sts.minmax[1])
+        
+    data = zip(date,ens,mean,var,skew,kurt,num,small,big)
+    colnames = ['date','ens','mean','variance','skewness','kurtosis','N','min','max']
+    dfout = pd.DataFrame(data)
+    dfout.columns = colnames
+    return dfout 
+        
+
+def getlabels(dt=[2,3,4,5,6,7,8,9,10]):
+    d1 = datetime.datetime(2020,10,21,23)
+    dlist = [d1+datetime.timedelta(hours=(n-2)*1) for n in dt]
+    #print(dlist)
+    labels = [x.strftime("%m/%d %H:00 UTC") for x in dlist]
+    return labels
+
+ 
 def getclrsGFS():
     clrs = []
     clrs.append(sns.xkcd_rgb['red']) 
@@ -24,12 +434,12 @@ def getclrsGFS():
 
 def set_lim(tii):
     if tii>=13:
-        xlim=(155,175)
-        ylim=(46,61)
+        xlim=(155,170)
+        ylim=(50,60)
     elif tii>=10:
         xlim=(157.5,167)
         ylim=(51.5,59)
-    elif tii>=8:
+    elif tii>=7:
         xlim=(157.5,164)
         ylim=(52,58.5)
     elif tii==6:
@@ -39,6 +449,19 @@ def set_lim(tii):
         xlim=(157.5,163)
         ylim=(54,58)
     return xlim, ylim 
+
+def runFuego(tag='FA'):
+    vhash={}
+    vhash['vloc'] = [-90.88,14.473]
+    vhash['tdir'] = '../Run{}'.format(tag)
+    vhash['tname'] = 'xrfile.invFuegoA.nc'
+    # location of volcat files
+    vhash['vdir'] = '../data/volcatFuego/'.format(tag)
+    # volcano id to locate
+    vhash['vid'] = None
+    vhash['gdir'] = './graphics/'
+    vhash['graphicstype'] = 'png'
+    return vhash
 
 def runD():
     """
@@ -112,8 +535,10 @@ def runBcontrol():
 
 def runany(subset,tag):
     case = runA()
-    case.vhash['tdir'] = '../RunG/'
-    case.vhash['tdir'] = '../Run{}/Run{}'.format(tag,subset)
+    if subset:
+        case.vhash['tdir'] = '../Run{}/Run{}'.format(tag,subset)
+    else:
+        case.vhash['tdir'] = '../Run{}'.format(tag,subset)
     case.vhash['tname'] = 'Run{}.nc'.format(tag)
     case.vhash['tag'] = tag
     case.vhash['configdir'] = '../Run{}'.format(tag)
@@ -153,11 +578,11 @@ def runA2():
     #----------------------------------------------------------------
     # location and name of netcdf file with cdump output.
     vhash['tdir'] = '../data/'
-    vhash['tname'] = 'xrfile.ensCylBezyB.nc'
+    vhash['tname'] = 'xrfile.ensCylBezyA2.nc'
 
     #----------------------------------------------------------------
     vhash['configdir'] = '../Run{}'.format(tag)
-    vhash['configfile'] = 'config.ensCylBezyB.txt'
+    vhash['configfile'] = 'config.ensCylBezyA2.txt'
 
     #-----------------------------------------------------------------
     # location of volcat files
@@ -184,11 +609,11 @@ def runA():
     #----------------------------------------------------------------
     # location and name of netcdf file with cdump output.
     vhash['tdir'] = '../data/'
-    vhash['tname'] = 'xrfile.ensCylBezy.nc'
+    vhash['tname'] = 'xrfile.ensCylBezyA.nc'
 
     #----------------------------------------------------------------
     vhash['configdir'] = '../Run{}'.format(tag)
-    vhash['configfile'] = 'config.ensCylBezy.txt'
+    vhash['configfile'] = 'config.ensCylBezyA.txt'
 
     #-----------------------------------------------------------------
     # location of volcat files
