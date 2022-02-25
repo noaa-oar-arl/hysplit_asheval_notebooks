@@ -738,9 +738,54 @@ def plot_problist(dtlist, problist, gdir='./', tag=''):
 
 
 
+def make_rank(aeval,thresh,cii=None,coarsen=None,coarsen_max=None,tlist=None):
+    from utilhysplit.evaluation import reliability
+    
+    #thresh=0.2
+    threshstr = str(thresh).replace('.','p')
+    nbins=32
+    rank1 = reliability.Talagrand(thresh,nbins)
+    if not tlist: tlist = [4,5,6,7,8,9,10,11,12,13] 
+    for tii in tlist:
+        #volcat = aeval.volcat_avg_hash[tii]
+        #forecast = aeval.cdump_hash[tii]
+        volcat, forecast = aeval.get_pair(tii,coarsen=coarsen,cii=cii,coarsen_max=coarsen_max)
+        dfin = rank1.add_data_xra(volcat,forecast)
+    return rank1
+
+def relrank_final_plots(aeval,df2,df3):
+    sns.set_style('whitegrid')
+    sns.set_context('paper')
+    fig = plt.figure(figsize=[20,5])
+    ax1 = fig.add_subplot(1,5,1)
+    ax2 = fig.add_subplot(1,5,2)
+    ax3 = fig.add_subplot(1,5,3)
+    ax4 = fig.add_subplot(1,5,4)
+    ax5 = fig.add_subplot(1,5,5)
 
 
-def plot_reliability(aeval, cii, coarsen_max=None,tag='',gdir='./',tlist=[4,5,6,7,8,9,11,11]):
+
+    coarsen=None
+    coarsen_max=None
+
+    cii=datetime.datetime(2020,10,22,0)
+    rank_thresh=0.1
+
+    tlist = [4,5,6]
+    aeval.set_bias_correction(slope=None, intercept=None, dfcdf=pd.DataFrame())
+    rank = make_rank(aeval,rank_thresh,None,coarsen,coarsen_max,tlist)  
+    rank.plotrank(ax=ax1)
+    plot_reliability(aeval,cii,ax4,ax5,coarsen_max,tag='',tlist=tlist)
+    tlist = [4,5,6]
+    aeval.set_bias_correction(slope=None, intercept=None, dfcdf=df2)
+    rank = make_rank(aeval,rank_thresh,cii,coarsen,coarsen_max,tlist)  
+    rank.plotrank(ax=ax1)
+
+    plot_reliability(aeval,cii,ax2,ax3,coarsen_max,tag='',tlist=tlist)
+
+
+def plot_reliability(aeval, cii, ax=None, ax2=None, 
+                     coarsen_max=None,tag='',gdir='./',tlist=[4,5,6,7,8,9,11,11]):
     from utilhysplit.evaluation import reliability
     num=10
     sns.set()
@@ -750,10 +795,11 @@ def plot_reliability(aeval, cii, coarsen_max=None,tag='',gdir='./',tlist=[4,5,6,
     clrs = ['--m','-c','-y','-g','-co','-y']
     rclist = []
     labels = []
-    fig = plt.figure(1)
-    ax = fig.add_subplot(1,1,1)
-    fig2 = plt.figure(2)
-    ax2 = fig2.add_subplot(1,1,1)
+    if not ax:
+        fig = plt.figure(1)
+        ax = fig.add_subplot(1,1,1)
+        fig2 = plt.figure(2)
+        ax2 = fig2.add_subplot(1,1,1)
     for thresh in threshlist:
         if isinstance(thresh,(float,int)):
             labels.append(str(thresh))
@@ -776,8 +822,8 @@ def plot_reliability(aeval, cii, coarsen_max=None,tag='',gdir='./',tlist=[4,5,6,
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles,labels,loc='upper left')
 
-    fig.savefig(gdir + 'reliability_{}_t{}'.format(tag,rel_time_str))
-    fig2.savefig(gdir + 'reliability_number_{}_t{}'.format(tag,rel_time_str))
+    #fig.savefig(gdir + 'reliability_{}_t{}'.format(tag,rel_time_str))
+    #fig2.savefig(gdir + 'reliability_number_{}_t{}'.format(tag,rel_time_str))
 
 
 
