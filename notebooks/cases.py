@@ -7,6 +7,7 @@ import copy
 import utilvolc.ash_inverse as ai
 from utilhysplit.evaluation import ensemble_tools
 from utilhysplit.plotutils import colormaker
+from utilhysplit.evaluation import plume_stat
 
 def set_lim(tii):
     if tii==16:
@@ -25,7 +26,7 @@ def set_lim(tii):
 
 
 
-class TimeLaggedGFS:
+class EvalObj:
     def __init__(self,tag,aeval,
                  remove_cols=True, 
                  remove_rows=False, 
@@ -88,7 +89,7 @@ class TimeLaggedGFS:
 
 
     def visualize(self,tii,vloc=None,cmap='viridis',verbose=True,figname=None):
-        if verbose: print(self.aeval.massload.time.values[tii])
+        if verbose: print(self.aeval.cdump.time.values[tii])
         timestr = str(pd.to_datetime(self.aeval.get_time(tii))).replace(' ','_')
         timestr = timestr.replace(':00:00','')
         timestr = timestr.replace('-','')
@@ -108,20 +109,23 @@ class TimeLaggedGFS:
             plt.show()
  
         # mean value
-        fig = self.aeval.compare_forecast(model.mean(ens=ens),vloc=vloc,cmap=cmap,xlim=xlim,ylim=ylim,
+        if verbose: print('mean')
+        fig = self.aeval.compare_forecast(model.mean(dim='ens'),vloc=vloc,cmap=cmap,xlim=xlim,ylim=ylim,
                                           include=include)
         if figname:
            plt.savefig(gdir + 'pcolormesh_run{}_{}_{}.png'.format(figname,timestr,'mean'))
-         
+        plt.show() 
         # max value
-        fig = self.aeval.compare_forecast(model.max(ens=ens),vloc=vloc,cmap=cmap,xlim=xlim,ylim=ylim,
+        if verbose: print('max')
+        fig = self.aeval.compare_forecast(model.max(dim='ens'),vloc=vloc,cmap=cmap,xlim=xlim,ylim=ylim,
                                           include=include)
         if figname:
            plt.savefig(gdir + 'pcolormesh_run{}_{}_{}.png'.format(figname,timestr,'max'))
+        plt.show() 
          
 
     def visualize_prob(self,tii,thresh,vloc=None,cmap='viridis',verbose=True,figname=None):
-        if verbose: print(self.aeval.massload.time.values[tii])
+        #if verbose: print(self.aeval.cdump.time.values[tii])
         timestr = str(pd.to_datetime(self.aeval.get_time(tii))).replace(' ','_')
         timestr = timestr.replace(':00:00','')
         timestr = timestr.replace('-','')
@@ -174,27 +178,27 @@ class TimeLaggedGFS:
         return dft, dft2
 
 
-    def plot_areaA(self,enslist,tlist=[0.1,0.2,2],legend=True):
+    def plot_areaA(self,enslist,tlist=[0.2,2],legend=True):
         sns.set()
         sns.set_style('whitegrid')
         fig = plt.figure(figsize=[20,5])
         nnn=1
         if legend: ccc=4
-        else: ccc = 3
+        else: ccc = 2
         ax1 = fig.add_subplot(nnn,ccc,1)
         ax2 = fig.add_subplot(nnn,ccc,2)
-        ax3 = fig.add_subplot(nnn,ccc,3)
+        #ax3 = fig.add_subplot(nnn,ccc,3)
         if legend: axg = fig.add_subplot(nnn,ccc,4)
-        axlist = [ax1, ax2, ax3]
+        axlist = [ax1, ax2]
         for iii, thresh in enumerate(tlist):
             print(iii, len(tlist), thresh)
             self.set_thresholds(coarsen=0,threshold=thresh,
                                 pixel_match=False, enslist=enslist)
             if iii < len(tlist)-1 or not legend:  
-                ax = self.plot_area(legend=False,ax=axlist[iii])
+                self.plot_area(legend=False,ax=axlist[iii])
             else:
-                ax = self.plot_area(legend=True,ax=axlist[iii],axg=axg)
-            
+                self.plot_area(legend=True,ax=axlist[iii],axg=axg)
+        return axlist   
 
     def plot_area(self,legend=False,ax=None,axg=None,enslist=None):
         clen = len(self.accdf.ens.unique())
@@ -228,7 +232,40 @@ class TimeLaggedGFS:
         print(colors)
         return colors
 
-    def plot_fssB(self,tii=14, slope=None, intercept=None):
+    def plot_fssC(self,tii,df2,df3):
+        fig = plt.figure(1,figsize=[20,3])
+        ax1 = fig.add_subplot(1,4,1)
+        ax2 = fig.add_subplot(1,4,2)
+        ax3 = fig.add_subplot(1,4,3)
+        ax4 = fig.add_subplot(1,4,4)
+
+        # bias at 00z
+        cii = datetime.datetime(2020,10,22,0)
+        self.set_bias_correction(slope=None,intercept=None,dfcdf=df2,cii=cii)
+        self.plot_fssB(tii,ax=ax2)
+
+        # bias at current time
+        # fourth plot
+        cii = datetime.datetime(2020,10,22,0)
+        self.set_bias_correction(slope=None,intercept=None,dfcdf=df2,cii=None)
+        self.plot_fssB(tii,ax=ax4)
+
+        # bias at 00z with no positive intercepts
+        # third plot
+        cii = datetime.datetime(2020,10,22,0)
+        self.set_bias_correction(slope=None,intercept=None,dfcdf=df3,cii=None)
+        self.plot_fssB(tii,ax=ax3)
+
+        # no bias
+        # first plot
+        self.set_bias_correction(slope=None,intercept=None,dfcdf=pd.DataFrame(),cii=None)
+        self.plot_fssB(tii,ax=ax1)
+        for ax in [ax1,ax2,ax3]:
+            ax.set_ylim(0,1.0)
+            ax.set_xlabel('degrees')
+            ax.set_ylabel('FSS')
+
+    def plot_fssB(self,tii=14, slope=None, intercept=None,ax=None):
         # plot fss as a function of neighborhood for given time, tii
         pixel_match=False
         threshold=0.2
@@ -236,11 +273,11 @@ class TimeLaggedGFS:
         timeval = self.aeval.cdump.time.values[tii]
         print(timeval)
         volcat,forecast = self.aeval.get_pair(tii,slope=slope, intercept=intercept,cii=self.cii)
-        print(self.aeval.concmult)
+        #print(self.aeval.concmult)
         #forecast = aeval.cdump_hash[tii]
         nb = np.arange(1,21,2)
         nb = np.append(nb,[31,41,51])
-        if tii > 8:
+        if tii > 10:
             nb = np.append(nb,[61,71,81,91,101])
         #nb = [11,81,91]
         # msc and psc are CalcScores objects.
@@ -250,9 +287,16 @@ class TimeLaggedGFS:
                                                neighborhoods=nb,
                                                return_objects=True,plot=False,
                                                pixel_match=pixel_match)
-        ensemble_tools.plot_ens_fss(df1)
+        ensemble_tools.plot_ens_fss(df1,xmult=0.1,ax=ax)
+        ax = plt.gca()
+        ax.set_ylim(0,1.0)
+        ax.set_xlabel('degrees')
+        ax.set_ylabel('FSS')
         if pixel_match: pmtag='_pm'
         else: pmtag = ''
+        return msc, psc, df1, dfmae
+
+
 
 
     def plot_afss(self):
@@ -661,8 +705,79 @@ def particle_mass(pmassmax):
 
 
 
+def plot_problist(dtlist, problist, gdir='./', tag=''):
+    sns.set_style('whitegrid')
+    sns.set_context('paper')
+    fig = plt.figure(1)
+    ax = fig.add_subplot(1,1,1)
+    arealist = []
+    blist = []
+    clr = ['--ko','--mo','--go','--co','--yo','--ro']
+    np.warnings.filterwarnings('ignore',category=np.VisibleDeprecationWarning)
+    for iii, prob in enumerate(problist):
+        label = dtlist[iii].strftime("%H UTC")
+        plevels = np.arange(0.1,1.05,0.1)
+        plevels = np.append([0,0.05],plevels)
+        print(plevels)
+        xlist, ylist,baseline,area = prob.calc_precision_recall(sz=1,clip=True,problist=plevels)
+        #print(xlist)
+        plume_stat.plot_precision_recall(xlist,ylist,float(baseline),ax=ax,clr=clr[iii],label=label)
+        handles,labels = ax.get_legend_handles_labels()
+        #ax.legend(handles,labels)
+        ax.set_ylim(0,1)
+        print(area, float(baseline))
+        arealist.append(area)
+        blist.append(baseline)
+    plt.savefig(gdir+'PRC_Run{}.png'.format(tag))
+    plt.show()
+
+    plt.plot(arealist,'-k.')
+    plt.plot(blist,'--ro')
+    ax = plt.gca()
+    ax.set_ylim(0,1)
 
 
+
+
+
+def plot_reliability(aeval, cii, coarsen_max=None,tag='',gdir='./',tlist=[4,5,6,7,8,9,11,11]):
+    from utilhysplit.evaluation import reliability
+    num=10
+    sns.set()
+    sns.set_context('talk')
+    threshlist = [0.1,0.2,[0.1,2],2,[2,5],5.0]
+    threshlist = [0.1,0.2,2]
+    clrs = ['--m','-c','-y','-g','-co','-y']
+    rclist = []
+    labels = []
+    fig = plt.figure(1)
+    ax = fig.add_subplot(1,1,1)
+    fig2 = plt.figure(2)
+    ax2 = fig2.add_subplot(1,1,1)
+    for thresh in threshlist:
+        if isinstance(thresh,(float,int)):
+            labels.append(str(thresh))
+        else:
+            labels.append('{} to {}'.format(thresh[0],thresh[1]))
+        rclist.append(reliability.ReliabilityCurve(thresh,num))
+    # time periods to include in reliability diagram.
+    #tlist = [2,3,4,5,6,7]
+    for tii in tlist:
+    #for tii in [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]:
+        volcat,forecast = aeval.get_pair(tii,cii=cii,coarsen_max=coarsen_max)
+        for jjj, rc in enumerate(rclist):
+            dfin = rc.reliability_add_xra(volcat,forecast,fill=True)
+
+    for jjj, rc in enumerate(rclist):
+        reliability.sub_reliability_plot(rc,ax,clr=clrs[jjj],fs=10,label=labels[jjj])
+        reliability.sub_reliability_number_plot(rc,ax2,clr=clrs[jjj],fs=10,label=labels[jjj])
+
+    rel_time_str = str.join('_',map(str,tlist))
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles,labels,loc='upper left')
+
+    fig.savefig(gdir + 'reliability_{}_t{}'.format(tag,rel_time_str))
+    fig2.savefig(gdir + 'reliability_number_{}_t{}'.format(tag,rel_time_str))
 
 
 
