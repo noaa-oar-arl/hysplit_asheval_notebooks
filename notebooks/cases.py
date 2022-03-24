@@ -233,11 +233,12 @@ class EvalObj:
         return colors
 
     def plot_fssC(self,tii,df2,df3):
-        fig = plt.figure(1,figsize=[20,3])
-        ax1 = fig.add_subplot(1,4,1)
-        ax2 = fig.add_subplot(1,4,2)
-        ax3 = fig.add_subplot(1,4,3)
-        ax4 = fig.add_subplot(1,4,4)
+        sns.set_context('poster')
+        fig = plt.figure(1,figsize=[20,5])
+        ax1 = fig.add_subplot(1,3,1)
+        ax2 = fig.add_subplot(1,3,2)
+        ax3 = fig.add_subplot(1,3,3)
+        #ax4 = fig.add_subplot(1,4,4)
 
         # bias at 00z
         cii = datetime.datetime(2020,10,22,0)
@@ -246,9 +247,9 @@ class EvalObj:
 
         # bias at current time
         # fourth plot
-        cii = datetime.datetime(2020,10,22,0)
-        self.set_bias_correction(slope=None,intercept=None,dfcdf=df2,cii=None)
-        self.plot_fssB(tii,ax=ax4)
+        #cii = datetime.datetime(2020,10,22,0)
+        #self.set_bias_correction(slope=None,intercept=None,dfcdf=df2,cii=None)
+        #self.plot_fssB(tii,ax=ax4)
 
         # bias at 00z with no positive intercepts
         # third plot
@@ -271,7 +272,7 @@ class EvalObj:
         threshold=0.2
         threshstr = str(threshold).replace('.','p')
         timeval = self.aeval.cdump.time.values[tii]
-        print(timeval)
+        print('time', timeval, 'threshold', threshold)
         volcat,forecast = self.aeval.get_pair(tii,slope=slope, intercept=intercept,cii=self.cii)
         #print(self.aeval.concmult)
         #forecast = aeval.cdump_hash[tii]
@@ -294,6 +295,7 @@ class EvalObj:
         ax.set_ylabel('FSS')
         if pixel_match: pmtag='_pm'
         else: pmtag = ''
+        plt.tight_layout()
         return msc, psc, df1, dfmae
 
 
@@ -703,40 +705,79 @@ def particle_mass(pmassmax):
     print('Number of particles equal to 2 mg/m3 : {}'.format(2/conc))
 
 
+def plot_problistA(dtlist1, dtlist2, problist1, problist2,gdir='./',tag='',sz=(1,1)):
+        fig = plt.figure(1)
+        ax = fig.add_subplot(1,1,1)
+        clr1 = ['--k','--m','--g','--c','--y','--r']
+        clr2 = ['-k','-m','-g','-c','-y','-r']
+        area1, base1 = plot_problist(dtlist1, problist1,ax,clr1,sz=sz[0])
+        area2, base2 = plot_problist(dtlist2, problist2,ax,clr2,sz=sz[1])
+
+        fig.savefig(gdir+'PRC_Run{}.png'.format(tag))
+
+        fig2 = plt.figure(2)
+        ax2 = fig2.add_subplot(1,1,1)
+        ax2.plot(area1, '--ko')
+        ax2.plot(base1, '--ro')
+        ax2.plot(area2, '-ko')
+        ax2.plot(base2, '-ro')
+        return ax, ax2
+
+        #plt.plot(arealist,'-k.')
+        #plt.plot(blist,'--ro')
+        #ax = plt.gca()
+        #ax.set_ylim(0,1.05)
+
+        
 
 
-def plot_problist(dtlist, problist, gdir='./', tag=''):
+def plot_problist(dtlist, problist, 
+                  ax=None,
+                  clr = ['--ko','--mo','--go','--co','--yo','--ro'],
+                  gdir='./', tag='',
+                  sz=1):
     sns.set_style('whitegrid')
     sns.set_context('paper')
-    fig = plt.figure(1)
-    ax = fig.add_subplot(1,1,1)
+    if not ax:
+        fig = plt.figure(1)
+        ax = fig.add_subplot(1,1,1)
+        dosave=True
+    else:
+        dosave=False
     arealist = []
     blist = []
-    clr = ['--ko','--mo','--go','--co','--yo','--ro']
+    maxy = 0
     np.warnings.filterwarnings('ignore',category=np.VisibleDeprecationWarning)
     for iii, prob in enumerate(problist):
         label = dtlist[iii].strftime("%H UTC")
         plevels = np.arange(0.1,1.05,0.1)
-        plevels = np.append([0,0.05],plevels)
-        print(plevels)
-        xlist, ylist,baseline,area = prob.calc_precision_recall(sz=1,clip=True,problist=plevels)
-        #print(xlist)
+        plevels = np.arange(0,32,1)
+        plevels = plevels/31.0
+        #plevels = np.append([0,1/31.0,2/31.0],plevels)
+        print('highlight plevel',plevels[2],plevels[15])
+        #print('All plevels', plevels)
+        xlist, ylist,baseline,area = prob.calc_precision_recall(sz=sz,clip=False,problist=plevels)
         plume_stat.plot_precision_recall(xlist,ylist,float(baseline),ax=ax,clr=clr[iii],label=label)
         handles,labels = ax.get_legend_handles_labels()
         #ax.legend(handles,labels)
-        ax.set_ylim(0,1)
-        print(area, float(baseline))
+        ax.plot(xlist[2],ylist[2],'yo',MarkerSize=10,alpha=0.5)
+        ax.plot(xlist[15],ylist[15],'ro',MarkerSize=10,alpha=0.5)
+        #print(area, float(baseline))
         arealist.append(area)
         blist.append(baseline)
-    plt.savefig(gdir+'PRC_Run{}.png'.format(tag))
-    plt.show()
+        maxy = np.max([maxy,np.max(ylist)])
+        #print(maxy)
+    ax.set_ylim(0,maxy+0.1)
+    if dosave:
+        plt.savefig(gdir+'PRC_Run{}.png'.format(tag))
+        plt.show()
 
-    plt.plot(arealist,'-k.')
-    plt.plot(blist,'--ro')
-    ax = plt.gca()
-    ax.set_ylim(0,1)
-
-
+        plt.plot(arealist,'-k.')
+        plt.plot(blist,'--ro')
+        ax = plt.gca()
+        #ax.set_ylim(0,1)
+    return arealist, blist
+ 
 
 def make_rank(aeval,thresh,cii=None,coarsen=None,coarsen_max=None,tlist=None):
     from utilhysplit.evaluation import reliability
@@ -753,16 +794,15 @@ def make_rank(aeval,thresh,cii=None,coarsen=None,coarsen_max=None,tlist=None):
         dfin = rank1.add_data_xra(volcat,forecast)
     return rank1
 
-def relrank_final_plots(aeval,df2,df3):
+def relrank_final_plots(aeval,df2,df3,tlist=[4,5,6]):
     sns.set_style('whitegrid')
     sns.set_context('paper')
     fig = plt.figure(figsize=[20,5])
-    ax1 = fig.add_subplot(1,5,1)
-    ax2 = fig.add_subplot(1,5,2)
-    ax3 = fig.add_subplot(1,5,3)
-    ax4 = fig.add_subplot(1,5,4)
-    ax5 = fig.add_subplot(1,5,5)
-
+    ax1 = fig.add_subplot(1,3,1)
+    ax2 = fig.add_subplot(1,3,2)
+    ax3 = fig.add_subplot(1,3,3)
+    #ax4 = fig.add_subplot(1,5,4)
+    #ax5 = fig.add_subplot(1,5,5)
 
 
     coarsen=None
@@ -771,23 +811,45 @@ def relrank_final_plots(aeval,df2,df3):
     cii=datetime.datetime(2020,10,22,0)
     rank_thresh=0.1
 
-    tlist = [4,5,6]
     aeval.set_bias_correction(slope=None, intercept=None, dfcdf=pd.DataFrame())
     rank = make_rank(aeval,rank_thresh,None,coarsen,coarsen_max,tlist)  
     rank.plotrank(ax=ax1)
-    plot_reliability(aeval,cii,ax4,ax5,coarsen_max,tag='',tlist=tlist)
-    tlist = [4,5,6]
+    #plot_reliability(aeval,cii,ax4,ax5,coarsen_max,tag='',tlist=tlist)
     aeval.set_bias_correction(slope=None, intercept=None, dfcdf=df2)
     rank = make_rank(aeval,rank_thresh,cii,coarsen,coarsen_max,tlist)  
     rank.plotrank(ax=ax1)
 
     plot_reliability(aeval,cii,ax2,ax3,coarsen_max,tag='',tlist=tlist)
+    return ax1,ax2,ax3,fig
+
+def relrank_final_plotsB(aeval,df2,clrs = ['-m','-c','-y']):
+    if colorset==1:
+        clrs = ['--m','--c','--y']
+    elif colorset==2:
+        clrs = ['-m','-c','-y']
+    rclist = []
+
+    labels=[]
+    for thresh in threshlist:
+        if isinstance(thresh,(float,int)):
+            labels.append(str(thresh))
+        else:
+            labels.append('{} to {}'.format(thresh[0],thresh[1]))
+        rclist.append(reliability.ReliabilityCurve(thresh,num))
+
+    for tii in tlist:
+        volcat,forecast = aeval.get_pair(tii,cii=cii,coarsen_max=coarsen_max)
+        for jjj, rc in enumerate(rclist):
+            dfin = rc.reliability_add_xra(volcat,forecast,fill=True)
+    for jjj, rc in enumerate(rclist):
+        reliability.sub_reliability_plot(rc,ax,clr=clrs[jjj],fs=10,label=labels[jjj])
+        reliability.sub_reliability_number_plot(rc,ax2,clr=clrs[jjj],fs=10,label=labels[jjj])
 
 
 def plot_reliability(aeval, cii, ax=None, ax2=None, 
                      coarsen_max=None,tag='',gdir='./',tlist=[4,5,6,7,8,9,11,11]):
     from utilhysplit.evaluation import reliability
-    num=10
+    num=15
     sns.set()
     sns.set_context('talk')
     threshlist = [0.1,0.2,[0.1,2],2,[2,5],5.0]
