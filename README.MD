@@ -2,6 +2,16 @@
 Evaluation and Bias Correction of Probabilistic Volcanic Ash Forecasts
 by Alice Crawford, Tianfeng Chai, Binyu Wang, Allison Ring1, Barbara Stunder, Christopher Loughner, Michael Pavolonis, and Justin Sieglaff
 
+### Dependencies
+
+* python modules
+    * jupyter, datetime, matplotlib, seaborn
+    * utilhysplit 
+    * monetio
+* data files with meteorology, satellite retrievals and HYSPLIT output can be obtained by contacting Alice Crawford.
+
+* Imagemagick was used for creating many of the multi-panel plots
+
 ### Contents
 
 #### notebooks directory
@@ -13,7 +23,23 @@ by Alice Crawford, Tianfeng Chai, Binyu Wang, Allison Ring1, Barbara Stunder, Ch
         * BezyInverseRunE
         * BezyInverseRunPartSize
         * BezyInverseRunM
+    * notebook for plotting meteorological data (Appendix A)
+        * GEFS_bezy_comparison.ipynb
     * notebooks for particle separation (Appendix B)
-        * particle_spearation.ipynb
+        * particle_spearation.ipynb (Figure B1 and B2)
     * notebooks for VOLCAT data
+        * Bezy.ipynb (Figure 1)
+    * notebooks for evaluation
+        * BezyEvalRunMfinal.ipynb
         * 
+    
+    * graphics/FigureScripts directory
+        * bash scripts for creating multi-panel plots with ImageMagick.
+     
+
+#### Directories with files for running HYSPLIT
+* RunA
+* RunM
+
+
+
