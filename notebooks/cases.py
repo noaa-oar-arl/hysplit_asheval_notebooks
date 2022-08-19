@@ -41,6 +41,7 @@ class EvalObj:
         self.graphics_type = '.png'
         self.slope = None
         self.intercept = None
+        self.coarsen=0
 
     def set_bias_correction(self,slope,intercept,dfcdf=pd.DataFrame(),cii=None):
         self.slope = slope
@@ -97,7 +98,7 @@ class EvalObj:
         try:
             obs, model = self.aeval.get_pair(tii,coarsen=self.coarsen,cii=self.cii)
         except:
-            return -1
+            return "Cannot get pair"
         for ens in  model.ens.values:
             if verbose: print('ENS', ens)
             xlim, ylim = set_lim(tii)
@@ -704,6 +705,13 @@ def particle_mass(pmassmax):
     print('Number of particles equal to 0.2 mg/m3 : {}'.format(0.2/conc))
     print('Number of particles equal to 2 mg/m3 : {}'.format(2/conc))
 
+def plot_problistTalk(dtlist1, problist1, gdir='./',tag='',sz=(1,1),clrset='A'):
+        sns.set_context('talk')
+        fig = plt.figure(1)
+        ax = fig.add_subplot(1,1,1)
+        if clrset=='A':
+            clr1 = ['--k','--m','--g','--c','--y','--r']
+        area1, base1 = plot_problist(dtlist1, problist1,ax,clr1,sz=sz[0])
 
 def plot_problistA(dtlist1, dtlist2, problist1, problist2,gdir='./',tag='',sz=(1,1),clrset='A'):
         fig = plt.figure(1)
@@ -883,7 +891,7 @@ def plot_reliability(aeval, cii, ax=None, ax2=None,
                      clrs = ['--m','-c','-y','-g','-co','-y']):
     from utilhysplit.evaluation import reliability
     num=15
-    fs=15
+    fs=18
     sns.set()
     sns.set_context('talk')
     threshlist = [0.1,0.2,[0.1,2],2,[2,5],5.0]
@@ -919,7 +927,10 @@ def plot_reliability(aeval, cii, ax=None, ax2=None,
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles,labels,loc='upper left')
 
-    ax.set_xlabel('Fraction model runs', fontsize=fs)
+    ax.set_xlabel('$y_i$', fontsize=fs)
+    ax.set_ylabel('p($o_1$|$y_i$)', fontsize=fs)
+    ax2.set_xlabel('$y_i$', fontsize=fs)
+    ax2.set_ylabel('Number of occurrencs', fontsize=fs)
 
     ax.tick_params(labelsize=fs)
     ax2.tick_params(labelsize=fs)
