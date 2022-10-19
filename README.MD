@@ -28,9 +28,15 @@ by Alice Crawford, Tianfeng Chai, Binyu Wang, Allison Ring1, Barbara Stunder, Ch
     * notebooks for particle separation (Appendix B)
         * particle_spearation.ipynb (Figure B1 and B2)
     * notebooks for VOLCAT data
-        * Bezy.ipynb (Figure 1)
+        * Bezy.ipynb 
+            * Figure 1
+            * Figure 2
     * notebooks for evaluation
         * BezyEvalRunMfinal.ipynb
+            * Figure 11
+        * BezyEvalRunAfina.ipynb
+            * Figure 6
+            * Figure 12
         * 
     
     * graphics/FigureScripts directory
